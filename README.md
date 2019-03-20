@@ -1,0 +1,2 @@
+# stringvar
+String Template Variable

@@ -1,20 +1,18 @@
 package stringvar
 
 import (
-	"fmt"
+	"bytes"
 	"path/filepath"
-	"strings"
+	"text/template"
 )
 
 type StringVar struct {
-	Open   string
-	Close  string
 	Data   map[string]interface{}
 	parent *StringVar
 }
 
 func New(data ...interface{}) *StringVar {
-	v := &StringVar{"{", "}", map[string]interface{}{}, nil}
+	v := &StringVar{map[string]interface{}{}, nil}
 	v.Merge(data...)
 	return v
 }
@@ -30,7 +28,7 @@ func (v *StringVar) Merge(data ...interface{}) *StringVar {
 				v.Data[vt[0]] = vt[1]
 			case map[string]interface{}:
 				if vt != nil {
-					v = &StringVar{v.Open, v.Close, vt, v}
+					v = &StringVar{vt, v}
 				}
 			case map[string]string:
 				if vt != nil {
@@ -38,7 +36,7 @@ func (v *StringVar) Merge(data ...interface{}) *StringVar {
 					for k, v := range vt {
 						d[k] = v
 					}
-					v = &StringVar{v.Open, v.Close, d, v}
+					v = &StringVar{d, v}
 				}
 			}
 		}
@@ -76,13 +74,15 @@ func (v *StringVar) Priority() (ld []*StringVar) {
 }
 
 func (v StringVar) Format(s string) string {
-	for _, d := range v.Priority() {
-		d.Walk(func(key string, value interface{}) {
-			s = strings.Replace(s, v.Open+key+v.Close, fmt.Sprint(value), -1)
-		})
+	t, err := template.New("<string var>").Parse(s)
+	if err != nil {
+		panic(err)
 	}
-
-	return s
+	var out bytes.Buffer
+	data := v.GetData()
+	t.Execute(&out, data)
+	r := out.String()
+	return r
 }
 
 func (v StringVar) FormatPath(s string) string {
@@ -131,7 +131,7 @@ func (v *StringVar) GetData() map[string]interface{} {
 }
 
 func (v *StringVar) Clone() *StringVar {
-	sv := &StringVar{v.Open, v.Close, map[string]interface{}{}, nil}
+	sv := &StringVar{Data: map[string]interface{}{}}
 	v.Walk(func(k string, v interface{}) {
 		sv.Data[k] = v
 	})
